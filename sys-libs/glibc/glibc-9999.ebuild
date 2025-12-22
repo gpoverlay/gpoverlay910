@@ -6,7 +6,7 @@ EAPI=8
 # Bumping notes: https://wiki.gentoo.org/wiki/Project:Toolchain/sys-libs/glibc
 # Please read & adapt the page as necessary if obsolete.
 
-PYTHON_COMPAT=( python3_{10..13} )
+PYTHON_COMPAT=( python3_{10..14} )
 TMPFILES_OPTIONAL=1
 
 EMULTILIB_PKG="true"
@@ -32,8 +32,10 @@ MIN_PAX_UTILS_VER="1.3.3"
 # its seccomp filter!). Please double check this!
 MIN_SYSTEMD_VER="254.9-r1"
 
+VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/glibc.asc
+
 inherit python-any-r1 prefix preserve-libs toolchain-funcs flag-o-matic gnuconfig \
-	multilib systemd multiprocessing tmpfiles eapi9-ver
+	multilib systemd multiprocessing tmpfiles eapi9-ver verify-sig
 
 DESCRIPTION="GNU libc C library"
 HOMEPAGE="https://www.gnu.org/software/libc/"
@@ -43,6 +45,7 @@ if [[ ${PV} == *9999 ]]; then
 else
 	#KEYWORDS="~alpha ~amd64 ~arm ~arm64 ~hppa ~loong ~m68k ~mips ~ppc ~ppc64 ~riscv ~s390 ~sparc ~x86"
 	SRC_URI="mirror://gnu/glibc/${P}.tar.xz"
+	SRC_URI+=" verify-sig? ( mirror://gnu/glibc/${P}.tar.xz.sig )"
 	SRC_URI+=" https://dev.gentoo.org/~${PATCH_DEV}/distfiles/${P}-patches-${PATCH_VER}.tar.xz"
 fi
 
@@ -121,6 +124,7 @@ BDEPEND="
 		>=net-dns/libidn2-2.3.0
 		sys-apps/gawk[mpfr]
 	)
+	verify-sig? ( sec-keys/openpgp-keys-glibc )
 "
 COMMON_DEPEND="
 	gd? ( media-libs/gd:2= )
@@ -151,7 +155,9 @@ if [[ ${CATEGORY} == cross-* ]] ; then
 else
 	BDEPEND+="
 		>=sys-devel/binutils-2.27
-		>=sys-devel/gcc-6.2
+		|| ( ( >=sys-devel/gcc-6.2 )
+		     ( >=sys-devel/gcc-6.2 >=llvm-core/clang-18 )
+		     ( >=llvm-core/clang-18 >=llvm-runtimes/libgcc-18 ) )
 	"
 	DEPEND+=" virtual/os-headers "
 	RDEPEND+="
@@ -291,7 +297,8 @@ do_run_test() {
 
 	if [[ ${MERGE_TYPE} == "binary" ]] ; then
 		# ignore build failures when installing a binary package #324685
-		do_compile_test "" "$@" 2>/dev/null || return 0
+		CC="${glibc__ORIG_CC}" CXX="${glibc__ORIG_CXX}" CPP="${glibc__ORIG_CPP}" \
+			CFLAGS="-O2" LDFLAGS="" do_compile_test "" "$@" 2>/dev/null || return 0
 	else
 		ebegin "Performing simple compile test for ABI=${ABI}"
 		if ! do_compile_test "" "$@" ; then
@@ -464,6 +471,11 @@ setup_flags() {
 		append-ldflags '-Wl,--hash-style=both'
 	fi
 
+	# clang warns about linker flags unused during compilation, but we don't
+	# want that to turn into errors!
+	# Let's turn the warning off entirely since it spams.
+	append-flags -Wno-unused-command-line-argument
+
 	# #492892
 	filter-flags -frecord-gcc-switches
 
@@ -595,68 +607,18 @@ setup_env() {
 	export glibc__ORIG_CXX=${CXX}
 	export glibc__ORIG_CPP=${CPP}
 
-	if tc-is-clang && ! use custom-cflags && ! is_crosscompile ; then
-		export glibc__force_gcc=yes
-		# once this is toggled on, it needs to stay on, since with CPP manipulated
-		# tc-is-clang does not work correctly anymore...
-	fi
+	# Always use tuple-prefixed toolchain. For non-native ABI glibc's configure
+	# can't detect them automatically due to ${CHOST} mismatch and fallbacks
+	# to unprefixed tools. Similar to multilib.eclass:multilib_toolchain_setup().
+	export CC="$(tc-getCC ${CTARGET})"
+	export CXX="$(tc-getCXX ${CTARGET})"
+	export CPP="$(tc-getCPP ${CTARGET})"
+	export NM="$(tc-getNM ${CTARGET})"
+	export READELF="$(tc-getREADELF ${CTARGET})"
 
-	if [[ ${glibc__force_gcc} == "yes" ]] ; then
-		# If we are running in an otherwise clang/llvm environment, we need to
-		# recover the proper gcc and binutils settings here, at least until glibc
-		# is finally building with clang. So let's override everything that is
-		# set in the clang profiles.
-		# Want to shoot yourself into the foot? Set USE=custom-cflags, that's always
-		# a good start into that direction.
-		# Also, if you're crosscompiling, let's assume you know what you are doing.
-		# Hopefully.
-		# Last, we need the settings of the *build* environment, not of the
-		# target environment...
-
-		local current_binutils_path=$(env CHOST="${CBUILD}" ROOT="${BROOT}" binutils-config -B "${CTARGET}")
-		local current_gcc_path=$(env ROOT="${BROOT}" gcc-config -B)
-		einfo "Overriding clang configuration, since it won't work here"
-
-		export CC="${current_gcc_path}/${CTARGET}-gcc"
-		export CPP="${current_gcc_path}/${CTARGET}-cpp"
-		export CXX="${current_gcc_path}/${CTARGET}-g++"
-		export LD="${current_binutils_path}/ld.bfd"
-		export AR="${current_binutils_path}/ar"
-		export AS="${current_binutils_path}/as"
-		export NM="${current_binutils_path}/nm"
-		export STRIP="${current_binutils_path}/strip"
-		export RANLIB="${current_binutils_path}/ranlib"
-		export OBJCOPY="${current_binutils_path}/objcopy"
-		export STRINGS="${current_binutils_path}/strings"
-		export OBJDUMP="${current_binutils_path}/objdump"
-		export READELF="${current_binutils_path}/readelf"
-		export ADDR2LINE="${current_binutils_path}/addr2line"
-
-		# do we need to also do flags munging here? yes! at least...
-		filter-flags '-fuse-ld=*'
-		filter-flags '-D_FORTIFY_SOURCE=*'
-
-	else
-
-		# this is the "normal" case
-
-		export CC="$(tc-getCC ${CTARGET})"
-		export CXX="$(tc-getCXX ${CTARGET})"
-		export CPP="$(tc-getCPP ${CTARGET})"
-
-		# Always use tuple-prefixed toolchain. For non-native ABI glibc's configure
-		# can't detect them automatically due to ${CHOST} mismatch and fallbacks
-		# to unprefixed tools. Similar to multilib.eclass:multilib_toolchain_setup().
-		export NM="$(tc-getNM ${CTARGET})"
-		export READELF="$(tc-getREADELF ${CTARGET})"
-
-	fi
-
-	# We need to export CFLAGS with abi information in them because glibc's
-	# configure script checks CFLAGS for some targets (like mips).  Keep
-	# around the original clean value to avoid appending multiple ABIs on
-	# top of each other. (Why does the comment talk about CFLAGS if the code
-	# acts on CC?)
+	# We need to move CFLAGS with abi information into CC etc per glibc upstream
+	# requirement. Keep around the original clean value to avoid appending
+	# multiple ABIs on top of each other.
 	export glibc__GLIBC_CC=${CC}
 	export glibc__GLIBC_CXX=${CXX}
 	export glibc__GLIBC_CPP=${CPP}
@@ -798,7 +760,7 @@ sanity_prechecks() {
 		if ! do_run_test '#include <unistd.h>\n#include <sys/syscall.h>\nint main(){return syscall(1000)!=-1;}\n' ; then
 			eerror "Your old kernel is broken. You need to update it to a newer"
 			eerror "version as syscall(<bignum>) will break. See bug 279260."
-			die "Old and broken kernel."
+			[[ ${I_ALLOW_TO_BREAK_MY_SYSTEM} = yes ]] || die "Old and broken kernel."
 		fi
 	fi
 
@@ -948,6 +910,9 @@ src_unpack() {
 		[[ ${PV} == *.*.9999 ]] && EGIT_BRANCH=release/${PV%.*}/master
 		git-r3_src_unpack
 	else
+		if use verify-sig; then
+			verify-sig_verify_detached "${DISTDIR}/${P}.tar.xz" "${DISTDIR}/${P}.tar.xz.sig"
+		fi
 		unpack ${P}.tar.xz
 
 		cd "${WORKDIR}" || die

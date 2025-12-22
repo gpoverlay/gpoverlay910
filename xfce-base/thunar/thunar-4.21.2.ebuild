@@ -14,7 +14,7 @@ SRC_URI="https://archive.xfce.org/src/xfce/${PN}/${PV%.*}/${P}.tar.xz"
 
 LICENSE="GPL-2+ LGPL-2+"
 SLOT="0/3"
-KEYWORDS="~amd64 ~arm ~arm64 ~loong ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86 ~amd64-linux ~x86-linux"
+KEYWORDS="~amd64 ~arm ~arm64 ~loong ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86"
 IUSE="X exif gtk-doc introspection libnotify pcre policykit +trash-panel-plugin udisks"
 
 DEPEND="
@@ -26,7 +26,7 @@ DEPEND="
 	>=xfce-base/libxfce4util-4.17.2:=
 	>=xfce-base/xfconf-4.12.0:=
 	exif? ( >=media-libs/gexiv2-0.14.0 )
-	introspection? ( >=dev-libs/gobject-introspection-1.72.0:= )
+	introspection? ( >=dev-libs/gobject-introspection-1.82.0-r2:= )
 	libnotify? ( >=x11-libs/libnotify-0.7.0 )
 	pcre? ( >=dev-libs/libpcre2-10.0:= )
 	trash-panel-plugin? ( >=xfce-base/xfce4-panel-4.14.0:= )
