@@ -1,4 +1,4 @@
-# Copyright 2021-2025 Gentoo Authors
+# Copyright 2021-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -9,7 +9,7 @@ inherit prefix python-any-r1 qt6-build toolchain-funcs
 
 DESCRIPTION="Library for rendering dynamic web content in Qt6 C++ and QML applications"
 SRC_URI+="
-	https://dev.gentoo.org/~ionen/distfiles/${PN}-6.10-patchset-7.tar.xz
+	https://dev.gentoo.org/~ionen/distfiles/${PN}-6.10-patchset-8.tar.xz
 "
 
 if [[ ${QT6_BUILD_TYPE} == release ]]; then
@@ -34,7 +34,7 @@ RDEPEND="
 	dev-libs/libxslt
 	dev-libs/nspr
 	dev-libs/nss
-	~dev-qt/qtbase-${PV}:6[accessibility=,gui,opengl=,vulkan?,widgets?]
+	~dev-qt/qtbase-${PV}:6[accessibility=,gui,opengl=,ssl,vulkan?,widgets?]
 	~dev-qt/qtdeclarative-${PV}:6[widgets?]
 	~dev-qt/qtwebchannel-${PV}:6[qml?]
 	media-libs/fontconfig
@@ -108,6 +108,8 @@ PATCHES=( "${WORKDIR}"/patches/${PN} )
 
 PATCHES+=(
 	# add extras as needed here, may merge in set if carries across versions
+	"${FILESDIR}"/${PN}-6.10.2-clang-22.patch
+	"${FILESDIR}"/${PN}-6.10.2-glibc-2.43.patch
 )
 
 python_check_deps() {
@@ -253,11 +255,11 @@ src_configure() {
 			ewarn "-g2+/-ggdb* *FLAGS replaced with -g1 (enable USE=custom-cflags to keep)"
 		fi
 
-		# Built helpers segfault when using (at least) -march=armv8-a+pauth
-		# (bug #920555, #920568 -- suspected gcc bug). For now, filter all
-		# for simplicity. Override with USE=custom-cflags if wanted, please
-		# report if above -march works again so can cleanup.
-		use arm64 && tc-is-gcc && filter-flags '-march=*' '-mcpu=*'
+		# Qt normally ignores users *FLAGS specifically for qtwebengine, and
+		# does not really support passing -march -- qt6-build.eclass has some
+		# checks to ensure working flags with amd64, but that does not exist
+		# for arm64 and can lead to problems (bug #920555,#920568,#970048)
+		use arm64 && filter-flags '-march=*' '-mcpu=*'
 	fi
 
 	# chromium passes this by default, but qtwebengine does not and it may

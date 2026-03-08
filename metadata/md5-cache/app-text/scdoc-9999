@@ -7,5 +7,5 @@ INHERIT=toolchain-funcs git-r3
 LICENSE=MIT
 PROPERTIES=live
 SLOT=0
-_eclasses_=git-r3	875eb471682d3e1f18da124be97dcc81	toolchain-funcs	98d9f464d912ae6b7316fb8a3721f5db
-_md5_=878b62e16cb4185874e04dd162ff231a
+_eclasses_=git-r3	875eb471682d3e1f18da124be97dcc81	toolchain-funcs	8a2c298bde71ecf3f452dd9e67c94369
+_md5_=67a6f623d1906085a40b755be45bec1a

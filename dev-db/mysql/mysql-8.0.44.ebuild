@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -25,7 +25,7 @@ S="${WORKDIR}/mysql"
 LICENSE="GPL-2"
 SLOT="8.0"
 # -ppc for bug #761715
-KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~mips -ppc ~ppc64 ~riscv ~s390 ~sparc ~x86 ~x64-macos ~x64-solaris"
+KEYWORDS="amd64 arm arm64 ~hppa ~mips -ppc ppc64 ~riscv ~s390 ~sparc x86 ~x64-macos ~x64-solaris"
 IUSE="cjk cracklib debug jemalloc latin1 numa +perl profiling router selinux +server tcmalloc test test-install"
 RESTRICT="!test? ( test )"
 
@@ -500,6 +500,15 @@ src_test() {
 
 		"main.keyring_migration_password;0;Known test failure -- no upstream bug yet"
 		"innodb.upgrade_orphan;0;Known test failure -- no upstream bug yet"
+
+		# Updated in newer versions
+		# https://github.com/mysql/mysql-server/commit/269f4ef1e091c7a4404450f97c5ae1845443eb25
+		"auth_sec.admin_channel_tls;0;Certificate expired"
+		"auth_sec.admin_channel_tls_startup;0;Certificate expired"
+		"auth_sec.cert_verify;0;Certificate expired"
+		"auth_sec.cert_verify_openssl;0;Certificate expired"
+		"x.mysqlxtest_mode_ssl;0;Certificate expired"
+		"x.mysqlxtest_mode_ssl_unixsocket;0;Certificate expired"
 	)
 
 	if ! hash zip 1>/dev/null 2>&1 ; then
@@ -651,12 +660,12 @@ src_install() {
 
 	# Configuration stuff
 	einfo "Building default configuration ..."
-	insinto "${MY_SYSCONFDIR#${EPREFIX}}"
+	insinto "${MY_SYSCONFDIR#"${EPREFIX}"}"
 	[[ -f "${S}/scripts/mysqlaccess.conf" ]] && doins "${S}"/scripts/mysqlaccess.conf
 	cp "${FILESDIR}/my.cnf-5.7" "${TMPDIR}/my.cnf" || die
 	eprefixify "${TMPDIR}/my.cnf"
 	doins "${TMPDIR}/my.cnf"
-	insinto "${MY_SYSCONFDIR#${EPREFIX}}/mysql.d"
+	insinto "${MY_SYSCONFDIR#"${EPREFIX}"}/mysql.d"
 	cp "${FILESDIR}/my.cnf-8.0.distro-client" "${TMPDIR}/50-distro-client.cnf" || die
 	eprefixify "${TMPDIR}/50-distro-client.cnf"
 	doins "${TMPDIR}/50-distro-client.cnf"

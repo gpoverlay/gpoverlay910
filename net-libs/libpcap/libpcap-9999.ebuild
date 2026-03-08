@@ -1,4 +1,4 @@
-# Copyright 1999-2024 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -45,7 +45,7 @@ BDEPEND="
 "
 
 if [[ ${PV} != *9999* ]] ; then
-	BDEPEND+=" verify-sig? ( >=sec-keys/openpgp-keys-tcpdump-20240901 )"
+	BDEPEND+=" verify-sig? ( >=sec-keys/openpgp-keys-tcpdump-20260104 )"
 fi
 
 src_prepare() {
@@ -62,15 +62,18 @@ multilib_src_configure() {
 	# bug #884275
 	export LEX=flex
 
-	ECONF_SOURCE="${S}" econf \
-		$(use_enable bluetooth) \
-		$(use_enable dbus) \
-		$(use_enable rdma) \
-		$(use_enable remote) \
-		$(use_enable usb) \
-		$(use_enable yydebug) \
-		$(use_with netlink libnl) \
+	local myeconfargs=(
+		$(use_enable bluetooth)
+		$(use_enable dbus)
+		$(use_enable rdma)
+		$(use_enable remote)
+		$(use_enable usb)
+		$(use_enable yydebug)
+		$(use_with netlink libnl)
 		--enable-ipv6
+	)
+
+	ECONF_SOURCE="${S}" econf "${myeconfargs[@]}"
 }
 
 multilib_src_compile() {

@@ -1,4 +1,4 @@
-# Copyright 2025 Gentoo Authors
+# Copyright 2025-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -22,10 +22,10 @@ else
 		${FFMPEG_SOC_PATCH:+"
 			soc? ( https://dev.gentoo.org/~chewi/distfiles/${FFMPEG_SOC_PATCH} )
 		"}
-		https://dev.gentoo.org/~ionen/distfiles/ffmpeg-$(ver_cut 1-2)-patchset-2.tar.xz
+		https://dev.gentoo.org/~ionen/distfiles/ffmpeg-$(ver_cut 1-2)-patchset-3.tar.xz
 	"
 	S=${WORKDIR}/ffmpeg-${PV} # avoid ${P} for ffmpeg-compat
-	KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~loong ~mips ~ppc ~ppc64 ~riscv ~sparc ~x86 ~arm64-macos ~x64-macos"
+	KEYWORDS="amd64 arm arm64 ~hppa ~loong ~mips ppc ppc64 ~riscv ~sparc x86 ~arm64-macos ~x64-macos"
 fi
 
 DESCRIPTION="Complete solution to record/convert/stream audio and video"
@@ -122,7 +122,6 @@ FFMPEG_IUSE_MAP=(
 	vaapi
 	vdpau
 	vidstab:libvidstab
-	vmaf:libvmaf
 	vorbis:libvorbis
 	vpx:libvpx
 	vulkan
@@ -284,7 +283,6 @@ COMMON_DEPEND="
 		x11-libs/libvdpau[${MULTILIB_USEDEP}]
 	)
 	vidstab? ( media-libs/vidstab[${MULTILIB_USEDEP}] )
-	vmaf? ( media-libs/libvmaf:=[${MULTILIB_USEDEP}] )
 	vorbis? ( media-libs/libvorbis[${MULTILIB_USEDEP}] )
 	vpx? ( media-libs/libvpx:=[${MULTILIB_USEDEP}] )
 	vulkan? ( media-libs/vulkan-loader[${MULTILIB_USEDEP}] )
@@ -477,6 +475,7 @@ multilib_src_configure() {
 		--disable-librist # librist itself needs attention first (bug #822012)
 		--disable-libtensorflow # causes headaches, and is gone
 		--disable-libtorch # support may need special attention (bug #936127)
+		--disable-libvmaf # use ffmpeg-8+ instead, needs old vmaf (bug #968554)
 		--disable-mbedtls # messy with slots, tests underlinking issues
 		--disable-mmal # prefer USE=soc
 		--disable-omx # unsupported (bug #653386)
@@ -517,6 +516,10 @@ multilib_src_configure() {
 			*mingw32*) conf+=( --target-os=mingw32 );;
 			*linux*) conf+=( --target-os=linux );;
 		esac
+	elif use arm; then
+		# TODO?: could *always* pass tc-arch-kernel, albeit that function
+		# is meant for the kernel and just mostly matches by accident
+		conf+=( --arch=arm ) #969514
 	fi
 
 	# skipping tests is handled at configure-time

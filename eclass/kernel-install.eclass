@@ -1,4 +1,4 @@
-# Copyright 2020-2025 Gentoo Authors
+# Copyright 2020-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # @ECLASS: kernel-install.eclass
@@ -403,18 +403,19 @@ kernel-install_create_qemu_image() {
 }
 
 # @FUNCTION: kernel-install_test
-# @USAGE: <version> <image> <modules>
+# @USAGE: <version> <image> <modules> <config>
 # @DESCRIPTION:
 # Test that the kernel can successfully boot a minimal system image
 # in qemu.  <version> is the kernel version, <image> path to the image,
-# <modules> path to module tree.
+# <modules> path to module tree, <config> path to the kernel config.
 kernel-install_test() {
 	debug-print-function ${FUNCNAME} "$@"
 
-	[[ ${#} -eq 3 ]] || die "${FUNCNAME}: invalid arguments"
+	[[ ${#} -eq 4 ]] || die "${FUNCNAME}: invalid arguments"
 	local version=${1}
 	local image=${2}
 	local modules=${3}
+	local config=${4}
 
 	local qemu_arch=$(kernel-install_get_qemu_arch)
 
@@ -435,12 +436,6 @@ kernel-install_test() {
 	> "${T}"/empty-file || die
 	mkdir -p "${T}"/empty-directory || die
 
-	local compress="gzip"
-	if [[ ${KERNEL_IUSE_GENERIC_UKI} ]] && use generic-uki; then
-		# Test with same compression method as the generic initrd
-		compress="xz -9e --check=crc32"
-	fi
-
 	dracut \
 		--conf "${T}"/empty-file \
 		--confdir "${T}"/empty-directory \
@@ -450,7 +445,7 @@ kernel-install_test() {
 		--omit "${omit_mods[*]}" \
 		--nostrip \
 		--no-early-microcode \
-		--compress="${compress}" \
+		--compress="$(dist-kernel_get_compressor "${config}")" \
 		"${T}/initrd" "${version}" || die
 
 	kernel-install_create_qemu_image "${T}/fs.img"
@@ -482,12 +477,10 @@ kernel-install_test() {
 			;;
 	esac
 
-	if [[ ${KERNEL_IUSE_MODULES_SIGN} ]]; then
-		# If KERNEL_IUSE_MODULES_SIGN, but no IUSE=modules-sign,
-		# then this is gentoo-kernel-bin test phase with signed mods.
-		if ! in_iuse modules-sign || use modules-sign; then
-			qemu_extra_append+=" module.sig_enforce=1"
-		fi
+	# If no IUSE=modules-sign, then this is gentoo-kernel-bin test
+	# phase with signed mods.
+	if ! in_iuse modules-sign || use modules-sign; then
+		qemu_extra_append+=" module.sig_enforce=1"
 	fi
 
 	cat > run.sh <<-EOF || die
@@ -692,7 +685,9 @@ kernel-install_extract_from_uki() {
 		)
 
 		# Check if there was a padding warning
-		if [[ ${sbverify_err} == "warning: data remaining"*": gaps between PE/COFF sections?"* ]]
+		if [[ ${?} -eq 0 ]]; then
+			sbverify_err=
+		elif [[ ${sbverify_err} == "warning: data remaining"*": gaps between PE/COFF sections?"* ]]
 		then
 			# https://github.com/systemd/systemd/issues/35851
 			local proper_size=${sbverify_err#"warning: data remaining["}
@@ -842,32 +837,10 @@ kernel-install_compress_modules() {
 		if [[ -z ${KV_FULL} ]]; then
 			KV_FULL=${PV}${KV_LOCALVERSION}
 		fi
-		local suffix=$(dist-kernel_get_module_suffix "${ED}/usr/src/linux-${KV_FULL}/.config")
-		local compress=()
-		# Options taken from linux-mod-r1.eclass.
-		# We don't instruct the compressor to parallelize because it applies
-		# multithreading per file, so it works only for big files, and we have
-		# lots of small files instead.
-		case ${suffix} in
-			.ko)
-				return
-				;;
-			.ko.gz)
-				compress+=( gzip )
-				;;
-			.ko.xz)
-				compress+=( xz --check=crc32 --lzma2=dict=1MiB )
-				;;
-			.ko.zst)
-				compress+=( zstd -q --rm )
-				;;
-			*)
-				die "Unknown compressor: ${suffix}"
-				;;
-		esac
 
 		find "${ED}/lib/modules/${KV_FULL}" -name '*.ko' -print0 |
-			xargs -0 -P "$(makeopts_jobs)" -n 128 "${compress[@]}"
+			xargs -0 -P "$(makeopts_jobs)" -n 128 \
+				$(dist-kernel_get_compressor "${ED}/usr/src/linux-${KV_FULL}/.config")
 		assert "Compressing kernel modules failed"
 
 		# Module paths have changed, run depmod

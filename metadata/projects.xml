@@ -160,10 +160,6 @@
     <name>Apache Project</name>
     <url>https://wiki.gentoo.org/wiki/Project:Apache</url>
     <description>The Apache project is responsible for maintaining the Apache httpd server in Gentoo, and many of its modules. We also maintain a build infrastructure so that other modules may be easily added in a standard way to Apache.</description>
-    <member is-lead="1">
-      <email>graaff@gentoo.org</email>
-      <name>Hans de Graaff</name>
-    </member>
   </project>
   <project>
     <email>artwork@gentoo.org</email>
@@ -397,6 +393,28 @@
     </member>
   </project>
   <project>
+    <email>codeberg@gentoo.org</email>
+    <name>Codeberg</name>
+    <url>https://wiki.gentoo.org/wiki/Project:Codeberg</url>
+    <description>Support team for the Gentoo organization on Codeberg and the related resources (mirrors, pull requests).</description>
+    <member>
+      <email>arthurzam@gentoo.org</email>
+      <name>Arthur Zamarin</name>
+    </member>
+    <member>
+      <email>eschwartz@gentoo.org</email>
+      <name>Eli Schwartz</name>
+    </member>
+    <member>
+      <email>mgorny@gentoo.org</email>
+      <name>Michał Górny</name>
+    </member>
+    <member>
+      <email>sam@gentoo.org</email>
+      <name>Sam James</name>
+    </member>
+  </project>
+  <project>
     <email>codec@gentoo.org</email>
     <name>Core libraries for gfx / audio / video formats</name>
     <url>https://wiki.gentoo.org/wiki/Project:Codec</url>
@@ -485,10 +503,6 @@
     <member>
       <email>ajak@gentoo.org</email>
       <name>John Helmert III</name>
-    </member>
-    <member>
-      <email>ultrabug@gentoo.org</email>
-      <name>Ultrabug</name>
     </member>
   </project>
   <project>
@@ -663,11 +677,6 @@
     <description>The Emacs project handles Emacs and Elisp related packages in the Gentoo package tree.</description>
     <subproject ref="gnu-emacs@gentoo.org" inherit-members="1"/>
     <subproject ref="xemacs@gentoo.org" inherit-members="1"/>
-    <member>
-      <email>graaff@gentoo.org</email>
-      <name>Hans de Graaff</name>
-      <role>Emacs maintainer</role>
-    </member>
     <member>
       <email>matsl@gentoo.org</email>
       <name>Mats Lidell</name>
@@ -858,10 +867,6 @@
     <name>GNU Emacs</name>
     <url>https://wiki.gentoo.org/wiki/Project:GNU_Emacs</url>
     <description>The GNU Emacs project handles GNU Emacs and related packages in the Gentoo package tree.</description>
-    <member>
-      <email>graaff@gentoo.org</email>
-      <name>Hans de Graaff</name>
-    </member>
     <member>
       <email>matthew@gentoo.org</email>
       <name>Matthew Smith</name>
@@ -1198,6 +1203,7 @@
     <name>Gentoo Infrastructure</name>
     <url>https://wiki.gentoo.org/wiki/Project:Infrastructure</url>
     <description>The Gentoo Infrastructure project provides and develops services for the Gentoo developer and user community, ensuring availability, security, and functionality.</description>
+    <subproject ref="codeberg@gentoo.org"/>
     <subproject ref="github@gentoo.org"/>
     <subproject ref="overlays@gentoo.org"/>
     <member>
@@ -1541,7 +1547,7 @@
     <email>musl@gentoo.org</email>
     <name>musl</name>
     <url>https://wiki.gentoo.org/wiki/Project:Musl</url>
-    <description>This subproject aims to port the hardened tool chain to musl based systems for a variety of architectures. The project treats musl as an alternative to glibc and uClibc, and not necessarily as "embedded".</description>
+    <description>This subproject aims to port the hardened tool chain to musl based systems for a variety of architectures. The project treats musl as an alternative to glibc, and not necessarily as "embedded".</description>
     <member>
       <email>arkamar@gentoo.org</email>
       <name>Petr Vaněk</name>
@@ -2375,11 +2381,6 @@
     <name>Ruby Project</name>
     <url>https://wiki.gentoo.org/wiki/Project:Ruby</url>
     <description>The Ruby project maintains packages for Ruby implementations, libraries and development tools. This project also maintains the RubyGems package, the de facto standard for packaging Ruby projects.</description>
-    <member is-lead="1">
-      <email>graaff@gentoo.org</email>
-      <name>Hans de Graaff</name>
-      <role>Lead</role>
-    </member>
     <member>
       <email>robbat2@gentoo.org</email>
       <name>Robin Johnson</name>
@@ -2598,6 +2599,11 @@
       <role>Mathematics, *, BLAS/LAPACK overlord</role>
     </member>
     <member>
+      <email>tupone@gentoo.org</email>
+      <name>Alfredo Tupone</name>
+      <role>Mathematics, Geosciences, *</role>
+    </member>
+    <member>
       <email>xgqt@gentoo.org</email>
       <name>Maciej Barć</name>
       <role>Mathematics</role>
@@ -2614,8 +2620,8 @@
       <role>Lead</role>
     </member>
     <member>
-      <email>graaff@gentoo.org</email>
-      <name>Hans de Graaff</name>
+      <email>csfore@gentoo.org</email>
+      <name>Christopher Fore</name>
     </member>
     <member>
       <email>sam@gentoo.org</email>

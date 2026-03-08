@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 # @ECLASS: nginx.eclass
@@ -6,7 +6,7 @@
 # Zurab Kvachadze <zurabid2016@gmail.com>
 # @AUTHOR:
 # Zurab Kvachadze <zurabid2016@gmail.com>
-# @SUPPORTED_EAPIS: 8
+# @SUPPORTED_EAPIS: 8 9
 # @BLURB: Provides a common set of functions for building the NGINX server
 # @DESCRIPTION:
 # This eclass automates building, testing and installation of the NGINX server.
@@ -21,14 +21,19 @@
 #  - NGINX_TESTS_COMMIT
 # And 1 optional variable (see description):
 #  - NGINX_MISC_FILES
-
-case ${EAPI} in
-	8) inherit eapi9-pipestatus ;;
-	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
-esac
+#
+# EAPI porting notes:
+#  - 8 -> 9:
+#    * NGINX_SUPPORT_MODULE_STUBS is enabled unconditionally.
 
 if [[ -z ${_NGINX_ECLASS} ]]; then
 _NGINX_ECLASS=1
+
+case ${EAPI} in
+	8) inherit eapi9-pipestatus edo ;;
+	9) ;;
+	*) die "${ECLASS}: EAPI ${EAPI:-0} not supported" ;;
+esac
 
 # The 60tmpfiles-paths install check produces QA warning if it does not detect
 # tmpfiles_process() in pkg_postinst(). Even though the tmpfiles_process() is
@@ -37,7 +42,7 @@ _NGINX_ECLASS=1
 # Nonetheless, it is possible to opt out from the QA check by setting the
 # TMPFILES_OPTIONAL variable.
 TMPFILES_OPTIONAL=1
-inherit edo multiprocessing perl-functions systemd toolchain-funcs tmpfiles
+inherit multiprocessing perl-functions systemd toolchain-funcs tmpfiles
 
 #-----> ebuild-defined variables <-----
 
@@ -221,6 +226,17 @@ has "${NGINX_UPDATE_STREAM}" "${NGX_UPDATE_STREAMS_LIST[@]}" ||
 # automatically fill the BDEPEND variable with module test dependencies.
 # For details, see _ngx_set_mod_test_depend() function description below.
 
+# @ECLASS_VARIABLE: NGINX_SUPPORT_MODULE_STUBS
+# @DEFAULT_UNSET
+# @DESCRIPTION:
+# Set this to a non-empty value before calling nginx_src_install() to create
+# /etc/nginx/modules-{available,enabled} and to make the default config load
+# .conf stubs from /etc/nginx/modules-enabled.  See nginx_src_install() for
+# details.
+#
+# In EAPI 9, the functionality is unconditionally enabled.
+[[ ${EAPI} != 8 ]] && readonly NGINX_SUPPORT_MODULE_STUBS=1
+
 #-----> ebuild setup <-----
 
 # NGINX does not guarantee ABI stability (required by dynamic modules), SLOT is
@@ -273,7 +289,7 @@ econf_ngx() {
 		#
 		# Executing this without edo gets rid of the "Failed to run" message.
 		./configure "$@"
-		return
+		return 0
 	fi
 	edo ./configure "$@"
 }
@@ -288,8 +304,9 @@ _ngx_populate_iuse() {
 	local mod state
 	IUSE+=" ${_NGX_SUBSYSTEMS[*]}"
 	for mod in "${_NGX_MODULES[@]}"; do
-		# SSL should be enabled by default in 2025.
-		if [[ ${mod:0:1} == + || ${mod} == *_ssl ]]; then
+		# SSL should be enabled by default in 2025. http_v2 is enabled because
+		# bug 968056.
+		if [[ ${mod:0:1} == + || ${mod} == *_ssl || ${mod#+} == http_v2 ]]; then
 			state=+
 		else
 			state=''
@@ -370,6 +387,7 @@ _ngx_set_blocks "${NGINX_UPDATE_STREAM}" "${NGX_UPDATE_STREAMS_LIST[@]}" 0
 _ngx_set_mod_required_use() {
 	local -A _NGX_DEP_TABLE=(
 		[http_v3]=http_ssl
+		[http_grpc]=http_v2
 	)
 
 	local mod dep_list dep result
@@ -519,23 +537,6 @@ unset -f _ngx_set_blocks _ngx_set_mod_required_use _ngx_set_mod_depend \
 	_ngx_set_mod_test_depend
 
 #-----> Phase functions <-----
-
-# @FUNCTION: nginx_pkg_setup
-# @DESCRIPTION:
-# Shows important information that a user should pay attention to.
-nginx_pkg_setup() {
-	debug-print-function "${FUNCNAME[0]}" "$@"
-	local prefix="nginx_modules_http"
-	if in_iuse "${prefix}_grpc" && in_iuse "${prefix}_v2" &&
-		use "${prefix}_grpc" && ! use "${prefix}_v2";
-	then
-		ewarn "http_grpc is enabled when http_v2 is disabled."
-		ewarn "The http_grpc module will not be built if http_v2 is not enabled."
-		ewarn "Please enable the ${prefix}_v2 USE flag on ${CATEGORY}/${PN}"
-		ewarn "to use the http_grpc NGINX module. Refer to the Gentoo Handbook for"
-		ewarn "instructions on how to change USE flags."
-	fi
-}
 
 # @FUNCTION: nginx_src_unpack
 # @DESCRIPTION:
@@ -777,7 +778,7 @@ nginx_src_test() {
 # and NGINX headers into '/usr/include/nginx'.
 nginx_src_install() {
 	debug-print-function "${FUNCNAME[0]}" "$@"
-	emake DESTDIR="${ED}" install
+	emake DESTDIR="${D}" install
 	keepdir "/usr/$(get_libdir)/nginx/modules"
 
 	keepdir /var/log/nginx
@@ -865,6 +866,12 @@ nginx_src_install() {
 		perl_fix_packlist
 	fi
 
+	# If not using modules, do not 'include modules-enabled/*.conf;'. Also, just
+	# in case, remove the line if NGINX_SUPPORT_MODULE_STUBS is unset.
+	if use !modules || [[ -z ${NGINX_SUPPORT_MODULE_STUBS} ]]; then
+		sed -i '/^@GENTOO_MODULES_INCLUDE@$/d' "${ED}"/etc/nginx/nginx.conf
+	fi
+
 	# For the rationale of the following, see nginx-module.eclass.
 	if use modules; then
 		# Install the headers into /usr/include/nginx.
@@ -921,6 +928,13 @@ nginx_src_install() {
 			variable = BDEPEND
 			includes = ${CATEGORY}/${PN}
 		EOF
+
+		if [[ -n ${NGINX_SUPPORT_MODULE_STUBS} ]]; then
+			keepdir /etc/nginx/modules-{available,enabled}
+
+			sed -i 's|^@GENTOO_MODULES_INCLUDE@$|include modules-enabled/*.conf;|' \
+				"${ED}"/etc/nginx/nginx.conf
+		fi
 	fi
 }
 
@@ -951,5 +965,5 @@ nginx_pkg_postinst() {
 
 fi
 
-EXPORT_FUNCTIONS pkg_setup src_unpack src_prepare src_configure src_compile \
-	src_test src_install pkg_postinst
+EXPORT_FUNCTIONS src_unpack src_prepare src_configure src_compile src_test \
+	src_install pkg_postinst

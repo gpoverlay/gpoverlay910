@@ -21,7 +21,7 @@ HOMEPAGE="https://github.com/KhronosGroup/Vulkan-Loader"
 
 LICENSE="Apache-2.0"
 SLOT="0"
-IUSE="layers wayland X"
+IUSE="wayland X"
 
 DEPEND="
 	~dev-util/vulkan-headers-${PV}
@@ -32,7 +32,6 @@ DEPEND="
 		x11-libs/libXrandr:=[${MULTILIB_USEDEP}]
 	)
 "
-PDEPEND="layers? ( media-libs/vulkan-layers[${MULTILIB_USEDEP},wayland?,X?] )"
 
 multilib_src_configure() {
 	# Integrated clang assembler doesn't work with x86 - Bug #698164

@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -131,7 +131,7 @@ DEPEND="
 	protect? ( dev-libs/libtasn1:= )
 "
 RDEPEND="${DEPEND}
-	branding? ( >=sys-boot/grub-themes-gentoo-1.0-r1 )
+	branding? ( themes? ( >=sys-boot/grub-themes-gentoo-1.0-r1 ) )
 	kernel_linux? (
 		grub_platforms_efi-32? ( sys-boot/efibootmgr )
 		grub_platforms_efi-64? ( sys-boot/efibootmgr )
@@ -148,7 +148,8 @@ QA_MULTILIB_PATHS="usr/lib/grub/.*"
 QA_WX_LOAD="usr/lib/grub/*"
 
 pkg_setup() {
-	:
+	# skip python-any-r1_pkg_setup: python_setup is called in src_prepare
+	secureboot_pkg_setup
 }
 
 src_unpack() {
@@ -279,6 +280,14 @@ src_configure() {
 	export LEX=flex
 	unset YACC
 
+	local sedargs=(
+		-e "s/@PV@/${PV}/"
+		-e "s/@PVR@/${PVR}/"
+		-e "s/@GEN_GRUB@/5/"
+		-e "s/@GEN_GENTOO@/1/"
+	)
+	sed "${sedargs[@]}" "${FILESDIR}/sbat.csv.in" > "${WORKDIR}/sbat.csv" || die
+
 	MULTIBUILD_VARIANTS=()
 	local p
 	for p in "${GRUB_ALL_PLATFORMS[@]}"; do
@@ -385,9 +394,8 @@ src_install() {
 	# https://bugs.gentoo.org/231935
 	dostrip -x /usr/lib/grub
 
-	sed -e "s/%PV%/${PV}/" "${FILESDIR}/sbat.csv" > "${T}/sbat.csv" || die
 	insinto /usr/share/grub
-	doins "${T}/sbat.csv"
+	doins "${WORKDIR}/sbat.csv"
 
 	if use elibc_musl; then
 		# https://bugs.gentoo.org/900348

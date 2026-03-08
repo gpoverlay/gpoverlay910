@@ -1,4 +1,4 @@
-# Copyright 1999-2025 Gentoo Authors
+# Copyright 1999-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
@@ -22,7 +22,7 @@ LICENSE="Apache-2.0"
 # same build of ERTS that was used when compiling the code.  See
 # http://erlang.org/doc/system_principles/misc.html for more information.
 SLOT="0/${PV}"
-KEYWORDS="~amd64 ~arm ~arm64 ~hppa ~ppc ~ppc64 ~riscv ~sparc ~x86 ~x64-macos ~x64-solaris"
+KEYWORDS="amd64 ~arm ~arm64 ~hppa ppc ppc64 ~riscv ~sparc x86 ~x64-macos ~x64-solaris"
 IUSE="doc java +kpoll odbc sctp ssl systemd tk wxwidgets"
 
 RDEPEND="
@@ -101,6 +101,12 @@ src_compile() {
 	use doc && emake docs DOC_TARGETS=chunks
 }
 
+src_test() {
+	# Only run a subset of tests to test that everything was built
+	# successfully, otherwise we will be here for a long time.
+	emake kernel_test ARGS="-suite os_SUITE"
+}
+
 extract_version() {
 	local path="$1"
 	local var_name="$2"
@@ -158,10 +164,4 @@ src_install() {
 
 	newinitd "${FILESDIR}"/epmd.init-r3 epmd
 	use systemd && systemd_newunit "${FILESDIR}"/epmd.service-r1 epmd.service
-}
-
-src_test() {
-	# Only run a subset of tests to test that everything was built
-	# successfully, otherwise we will be here for a long time.
-	emake kernel_test ARGS="-suite os_SUITE"
 }
